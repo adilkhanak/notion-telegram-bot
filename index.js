@@ -1,62 +1,79 @@
-// index.js
-require('dotenv').config();
-const axios = require('axios');
+import os
+import time
+import requests
+from notion_client import Client
 
-const NOTION_TOKEN = process.env.NOTION_TOKEN;
-const DATABASE_ID = process.env.DATABASE_ID;
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const CHAT_ID = process.env.CHAT_ID;
+NOTION_TOKEN = os.getenv("NOTION_TOKEN")
+DATABASE_ID = os.getenv("DATABASE_ID")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
-let previousState = {};
+notion = Client(auth=NOTION_TOKEN)
+last_state = {}
 
-async function fetchTasks() {
-  try {
-    const res = await axios.post(
-      `https://api.notion.com/v1/databases/${DATABASE_ID}/query`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${NOTION_TOKEN}`,
-          'Notion-Version': '2022-06-28',
-          'Content-Type': 'application/json'
-        }
-      }
-    );
 
-    const changes = [];
-    for (const page of res.data.results) {
-      const id = page.id;
-      const props = page.properties;
+def fetch_database():
+    response = notion.databases.query(database_id=DATABASE_ID)
+    return response.get("results", [])
 
-      const name = props.Name?.title?.[0]?.plain_text || 'Без названия';
-      const status = props.Status?.select?.name || 'Без статуса';
-      const responsible = props.Responsible?.people?.[0]?.name || 'Без ответственного';
-      const deadline = props.Deadline?.date?.start || 'Без срока';
 
-      const current = `${name} - ${status} - ${responsible} - ${deadline}`;
+def extract_fields(page):
+    props = page.get("properties", {})
+    name = props.get("Name", {}).get("title", [{}])[0].get("plain_text", "Без названия")
+    status = props.get("Status", {}).get("select", {}).get("name", "Без статуса")
+    responsible = props.get("Responsible", {}).get("people", [{}])
+    responsible_name = responsible[0].get("name", "Не назначен") if responsible else "Не назначен"
+    deadline = props.get("Deadline", {}).get("date", {}).get("start", "Без срока")
+    return name, status, responsible_name, deadline
 
-      if (previousState[id] && previousState[id] !== current) {
-        changes.push(`Изменено: ${current}`);
-      } else if (!previousState[id]) {
-        changes.push(`📌 Новая задача: ${current}`);
-      }
 
-      previousState[id] = current;
+def send_telegram_message(text):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
+    requests.post(url, json=payload)
+
+
+def format_message(event_type, name, status, responsible, deadline):
+    emojis = {
+        "new": "🆕",
+        "update": "🔄",
+        "task": "📌",
+        "status": "📊",
+        "user": "👤",
+        "date": "📅"
     }
+    return (
+        f"{emojis[event_type]} <b>{'Новая задача' if event_type == 'new' else 'Изменено'}</b>\n"
+        f"{emojis['task']} <b>{name}</b>\n"
+        f"{emojis['status']} Статус:</b> {status}\n"
+        f"{emojis['user']} Ответственный:</b> {responsible}\n"
+        f"{emojis['date']} Срок:</b> {deadline}"
+    )
 
-    if (changes.length > 0) {
-      await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-        chat_id: CHAT_ID,
-        text: changes.join('\n')
-      });
-    }
-  } catch (error) {
-    console.error('Ошибка при получении задач:', error.response?.data || error.message);
-  }
-}
 
-// Запуск каждые 60 секунд
-setInterval(fetchTasks, 60000);
+def track_changes():
+    global last_state
+    pages = fetch_database()
+    for page in pages:
+        page_id = page["id"]
+        name, status, responsible, deadline = extract_fields(page)
+        current = f"{name}|{status}|{responsible}|{deadline}"
 
-// Первый запуск
-fetchTasks();
+        if page_id not in last_state:
+            msg = format_message("new", name, status, responsible, deadline)
+            send_telegram_message(msg)
+        elif last_state[page_id] != current:
+            msg = format_message("update", name, status, responsible, deadline)
+            send_telegram_message(msg)
+
+        last_state[page_id] = current
+
+
+if __name__ == "__main__":
+    while True:
+        try:
+            track_changes()
+            time.sleep(20)
+        except Exception as e:
+            print("Error:", e)
+            time.sleep(60)
