@@ -1,0 +1,13 @@
+{
+  "name": "notion-telegram-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.4",
+    "axios": "^1.6.7"
+  }
+}
