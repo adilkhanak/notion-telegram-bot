@@ -38,7 +38,7 @@ async function fetchTasks() {
       if (previousState[id] && previousState[id] !== current) {
         changes.push(`Изменено: ${current}`);
       } else if (!previousState[id]) {
-        changes.push(`Новая задача: ${current}`);
+        changes.push(`📌 Новая задача: ${current}`);
       }
 
       previousState[id] = current;
