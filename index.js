@@ -34,17 +34,17 @@ async function fetchTasks() {
       const status =
         props.Status?.select?.name?.trim() || '🔄 Без статуса';
       const responsible =
-        props.Responsible?.people?.[0]?.name?.trim() || '👤 Не назначен';
+        props.Person?.people?.[0]?.name?.trim() || '👤 Не назначен';
       const deadline =
-        props.Deadline?.date?.start?.trim() || '📅 Без срока';
+        props.Date?.date?.start?.trim() || '📅 Без срока';
 
       const formatted = 
         `📌 <b>${name}</b>\n` +
         `📊 Статус: ${status}\n` +
-        `👤 Ответственный: ${responsible}\n` +
-        `📅 Срок: ${deadline}`;
+        `👤 Ответственный: ${person}\n` +
+        `📅 Срок: ${date}`;
 
-      const current = `${name}|${status}|${responsible}|${deadline}`;
+      const current = `${name}|${status}|${person}|${date}`;
 
       if (previousState[id] && previousState[id] !== current) {
         changes.push(`🔄 <b>Изменено</b>\n${formatted}`);
