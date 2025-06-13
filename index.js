@@ -1,4 +1,5 @@
-require('dotenv').config();More actions
+// index.js
+require('dotenv').config();
 const axios = require('axios');
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
@@ -38,7 +39,6 @@ async function fetchTasks() {
         changes.push(`Изменено: ${current}`);
       } else if (!previousState[id]) {
         changes.push(`Новая задача: ${current}`);
-        changes.push(`📌 Новая задача: ${current}`);
       }
 
       previousState[id] = current;
@@ -55,7 +55,7 @@ async function fetchTasks() {
   }
 }
 
-// Запуск каждые 60 секундMore actions
+// Запуск каждые 60 секунд
 setInterval(fetchTasks, 60000);
 
 // Первый запуск
